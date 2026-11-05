@@ -29,7 +29,8 @@
     <div v-if="submitSuccess" class="notice success" role="status">
       <span>
         Order <strong>{{ submitSuccess.order_number }}</strong> placed. Expected delivery:
-        <strong>{{ formatDate(submitSuccess.expected_delivery) }}</strong>.
+        <strong>{{ formatDate(submitSuccess.expected_delivery) }}</strong
+        >.
       </span>
       <button type="button" class="link-button" @click="submitSuccess = null">Dismiss</button>
     </div>
@@ -63,12 +64,7 @@
       <div class="card" :class="{ refreshing }">
         <div class="card-header">
           <h3 class="card-title">Recommended Purchases ({{ rows.length }})</h3>
-          <button
-            type="button"
-            class="place-order"
-            :disabled="!canSubmit"
-            @click="submitOrder"
-          >
+          <button type="button" class="place-order" :disabled="!canSubmit" @click="submitOrder">
             {{ submitting ? 'Placing order...' : 'Place Order' }}
           </button>
         </div>
@@ -102,13 +98,11 @@
             <tbody>
               <tr v-for="row in rows" :key="row.sku" :class="{ deselected: !row.selected }">
                 <td class="col-check">
-                  <input
-                    v-model="row.selected"
-                    type="checkbox"
-                    :aria-label="`Select ${row.sku}`"
-                  />
+                  <input v-model="row.selected" type="checkbox" :aria-label="`Select ${row.sku}`" />
                 </td>
-                <td><strong>{{ row.sku }}</strong></td>
+                <td>
+                  <strong>{{ row.sku }}</strong>
+                </td>
                 <td>{{ translateProductName(row.name) }}</td>
                 <td class="num">{{ row.quantity_on_hand.toLocaleString() }}</td>
                 <td class="num">{{ row.forecasted_demand.toLocaleString() }}</td>
@@ -173,8 +167,7 @@ export default {
     // Money is handled in cents to avoid floating point drift in totals.
     const toCents = (value) => Math.round(Number(value) * 100)
 
-    const isValidQty = (row) =>
-      Number.isInteger(row.quantity) && row.quantity >= 1 && row.quantity <= row.shortfall
+    const isValidQty = (row) => Number.isInteger(row.quantity) && row.quantity >= 1 && row.quantity <= row.shortfall
 
     const lineCost = (row) => (isValidQty(row) ? (row.quantity * toCents(row.unit_cost)) / 100 : 0)
 
@@ -191,20 +184,19 @@ export default {
       })
     }
 
-    const selectedRows = computed(() => rows.value.filter(r => r.selected))
+    const selectedRows = computed(() => rows.value.filter((r) => r.selected))
 
-    const hasInvalidQuantity = computed(() => selectedRows.value.some(r => !isValidQty(r)))
+    const hasInvalidQuantity = computed(() => selectedRows.value.some((r) => !isValidQty(r)))
 
     const selectedTotal = computed(
-      () => selectedRows.value.reduce((sum, r) => sum + (isValidQty(r) ? r.quantity * toCents(r.unit_cost) : 0), 0) / 100
+      () =>
+        selectedRows.value.reduce((sum, r) => sum + (isValidQty(r) ? r.quantity * toCents(r.unit_cost) : 0), 0) / 100
     )
 
     const remaining = computed(() => (toCents(budget.value) - toCents(selectedTotal.value)) / 100)
     const overBudget = computed(() => remaining.value < 0)
 
-    const longestLeadTime = computed(() =>
-      selectedRows.value.reduce((max, r) => Math.max(max, r.lead_time_days), 0)
-    )
+    const longestLeadTime = computed(() => selectedRows.value.reduce((max, r) => Math.max(max, r.lead_time_days), 0))
 
     const canSubmit = computed(
       () => selectedRows.value.length > 0 && !overBudget.value && !hasInvalidQuantity.value && !submitting.value
@@ -215,10 +207,10 @@ export default {
     // recommendation (<= recommended_qty, i.e. within the new budget);
     // otherwise the row resets to the server recommendation.
     const mergeRecommendations = (items) => {
-      const previous = new Map(rows.value.map(r => [r.sku, r]))
+      const previous = new Map(rows.value.map((r) => [r.sku, r]))
       rows.value = items
-        .filter(item => item.recommended_qty > 0)
-        .map(item => {
+        .filter((item) => item.recommended_qty > 0)
+        .map((item) => {
           const prev = previous.get(item.sku)
           const keepEdit = prev && prev.edited && isValidQty(prev) && prev.quantity <= item.recommended_qty
           return {
@@ -270,7 +262,7 @@ export default {
       try {
         const order = await api.submitRestockOrder({
           budget: budget.value, // always the slider budget, not the selected total
-          items: selectedRows.value.map(r => ({ sku: r.sku, quantity: r.quantity }))
+          items: selectedRows.value.map((r) => ({ sku: r.sku, quantity: r.quantity }))
         })
         submitSuccess.value = order
         // Discard edits so the refreshed list reflects fresh recommendations.
