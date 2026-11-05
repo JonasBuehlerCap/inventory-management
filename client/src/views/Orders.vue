@@ -75,6 +75,58 @@
         </div>
       </div>
     </div>
+
+    <!-- Restock orders placed from the Restocking page; independent of the global filters -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Submitted Orders ({{ submittedOrders.length }})</h3>
+      </div>
+      <div v-if="submittedLoading" class="loading">{{ t('common.loading') }}</div>
+      <div v-else-if="submittedError" class="error">{{ submittedError }}</div>
+      <div v-else-if="submittedOrders.length === 0" class="submitted-empty">
+        No restock orders have been submitted yet.
+      </div>
+      <div v-else class="table-container">
+        <table class="orders-table">
+          <thead>
+            <tr>
+              <th class="col-order-number">{{ t('orders.table.orderNumber') }}</th>
+              <th class="col-date">Submitted</th>
+              <th class="col-items">{{ t('orders.table.items') }}</th>
+              <th class="col-value">Total Cost</th>
+              <th class="col-lead">Lead Time</th>
+              <th class="col-date">{{ t('orders.table.expectedDelivery') }}</th>
+              <th class="col-status">{{ t('orders.table.status') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="order in submittedOrders" :key="order.id">
+              <td class="col-order-number"><strong>{{ order.order_number }}</strong></td>
+              <td class="col-date">{{ formatDate(order.submitted_at) }}</td>
+              <td class="col-items">
+                <details class="items-details">
+                  <summary class="items-summary">
+                    {{ t('orders.itemsCount', { count: order.items.length }) }}
+                  </summary>
+                  <div class="items-dropdown">
+                    <div v-for="item in order.items" :key="item.sku" class="item-entry">
+                      <span class="item-name">{{ translateProductName(item.name) }}</span>
+                      <span class="item-meta">{{ t('orders.quantity') }}: {{ item.quantity }} @ {{ currencySymbol }}{{ item.unit_cost }}</span>
+                    </div>
+                  </div>
+                </details>
+              </td>
+              <td class="col-value"><strong>{{ currencySymbol }}{{ order.total_cost.toLocaleString() }}</strong></td>
+              <td class="col-lead">{{ order.lead_time_days }} days</td>
+              <td class="col-date">{{ formatDate(order.expected_delivery) }}</td>
+              <td class="col-status">
+                <span :class="['badge', getSubmittedStatusClass(order.status)]">{{ order.status }}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -153,9 +205,38 @@ export default {
       })
     }
 
-    onMounted(loadOrders)
+    // Submitted restock orders: own loading/error state so a failure here
+    // never affects the main orders view, and no filter watchers.
+    const submittedOrders = ref([])
+    const submittedLoading = ref(true)
+    const submittedError = ref(null)
+
+    const loadSubmittedOrders = async () => {
+      try {
+        submittedOrders.value = await api.getSubmittedOrders()
+      } catch (err) {
+        submittedError.value = 'Failed to load submitted orders: ' + err.message
+      } finally {
+        submittedLoading.value = false
+      }
+    }
+
+    // Unknown statuses fall back to the neutral "info" colour.
+    const getSubmittedStatusClass = (status) => {
+      const statusMap = { Submitted: 'info', Shipped: 'info', Delivered: 'success' }
+      return statusMap[status] || 'info'
+    }
+
+    onMounted(() => {
+      loadOrders()
+      loadSubmittedOrders()
+    })
 
     return {
+      submittedOrders,
+      submittedLoading,
+      submittedError,
+      getSubmittedStatusClass,
       t,
       loading,
       error,
@@ -201,6 +282,16 @@ export default {
 
 .col-value {
   width: 120px;
+}
+
+.col-lead {
+  width: 100px;
+}
+
+.submitted-empty {
+  padding: 2rem;
+  text-align: center;
+  color: #64748b;
 }
 
 /* Items details styling */
